@@ -24,16 +24,12 @@ jobs:
             target: x86_64-pc-windows-msvc
           - os: windows-latest
             target: aarch64-pc-windows-msvc
-            args: "--target aarch64-pc-windows-msvc"
           - os: macos-latest
             target: aarch64-apple-darwin
-            args: "--target aarch64-apple-darwin"
           - os: macos-latest
             target: x86_64-apple-darwin
-            args: "--target x86_64-apple-darwin"
           - os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            args: ""
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -72,18 +68,29 @@ jobs:
       - name: Pnpm install and check
         run: |
           pnpm i
+          pnpm check ${{ matrix.target }}
 
       - name: Tauri build
         uses: tauri-apps/tauri-action@v0
         env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: alpha
-          releaseName: "ClashPro"
+          releaseName: "Clash Verge Rev Alpha"
           releaseBody: "More new features are now supported."
           releaseDraft: false
           prerelease: true
-          args: ${{ matrix.args }}
+          tauriScript: pnpm
+          args: --target ${{ matrix.target }}
 
       - name: Portable Bundle
         if: matrix.os == 'windows-latest'
@@ -132,6 +139,7 @@ jobs:
       - name: Pnpm install and check
         run: |
           pnpm i
+          pnpm check ${{ matrix.target }}
 
       - name: "Setup for linux"
         run: |-
@@ -189,6 +197,8 @@ jobs:
           pnpm build --target ${{ matrix.target }}
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
       - name: Get Version
         run: |
@@ -201,7 +211,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: alpha
-          name: "ClashPro"
+          name: "Clash Verge Rev Alpha"
           body: "More new features are now supported."
           prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -248,6 +258,7 @@ jobs:
       - name: Pnpm install and check
         run: |
           pnpm i
+          pnpm check ${{ matrix.target }}
 
       - name: Download WebView2 Runtime
         run: |
@@ -262,6 +273,8 @@ jobs:
         env:
           NODE_OPTIONS: "--max_old_space_size=4096"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
         with:
           tauriScript: pnpm
           args: --target ${{ matrix.target }}
@@ -276,7 +289,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: alpha
-          name: "ClashPro"
+          name: "Clash Verge Rev Alpha"
           body: "More new features are now supported."
           prerelease: true
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -286,3 +299,65 @@ jobs:
         run: pnpm portable-fixed-webview2 ${{ matrix.target }} --alpha
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  update_tag:
+    name: Update tag
+    runs-on: ubuntu-latest
+    needs: [alpha, alpha-for-linux-arm, alpha-for-fixed-webview2]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Env
+        run: |
+          echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Update Tag
+        uses: richardsimko/update-tag@v1
+        with:
+          tag_name: alpha
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: |
+          cat > release.txt << 'EOF'
+          ## 我应该下载哪个版本？
+
+          ### MacOS
+          - MacOS intel芯片: x64.dmg
+          - MacOS apple M芯片: aarch64.dmg
+
+          ### Linux
+          - Linux 64位: amd64.deb/amd64.rpm
+          - Linux arm64 architecture: arm64.deb/aarch64.rpm
+          - Linux armv7架构: armhf.deb/armhfp.rpm
+
+          ### Windows (Win7 用户请查看下面FAQ中的解决方案)
+          #### 正常版本(推荐)
+          - 64位: x64-setup.exe
+          - arm64架构: arm64-setup.exe
+          #### 便携版问题很多不再提供
+          #### 内置Webview2版(体积较大，仅在企业版系统或无法安装webview2时使用)
+          - 64位: x64_fixed_webview2-setup.exe
+          - arm64架构: arm64_fixed_webview2-setup.exe
+
+          ### FAQ
+
+          - [常见问题](https://clash-verge-rev.github.io/faq/windows.html)
+
+          ### 稳定机场VPN推荐
+          - [狗狗加速](https://verge.dginv.click/#/register?code=oaxsAGo6)
+
+          Created at  ${{ env.BUILDTIME }}.
+          EOF
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: alpha
+          name: "Clash Verge Rev Alpha"
+          body_path: release.txt
+          prerelease: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+          generate_release_notes: true
