@@ -53,6 +53,7 @@ pub async fn resolve_setup(app: &mut App) {
     log::trace!(target:"app", "init config");
     log_err!(Config::init_config().await);
 
+    // 检查服务
     if service::check_service().await.is_err() {
         match service::reinstall_service().await {
             Ok(_) => {
@@ -102,8 +103,10 @@ pub async fn resolve_setup(app: &mut App) {
     log::trace!(target: "app", "init hotkeys");
     log_err!(hotkey::Hotkey::global().init());
 
+    // 创建窗口：静默
     let silent_start = { Config::verge().data().enable_silent_start };
     if !silent_start.unwrap_or(false) {
+        // 创建窗口
         create_window();
     }
 
@@ -135,12 +138,15 @@ pub fn create_window() {
         println!("Found existing window, trying to show it");
         log::info!(target: "app", "Found existing window, trying to show it");
 
+        // 窗口是不是最小化
         if window.is_minimized().unwrap_or(false) {
             println!("Window is minimized, unminimizing");
             log::info!(target: "app", "Window is minimized, unminimizing");
             let _ = window.unminimize();
         }
+        // 显示窗口
         let _ = window.show();
+        // 设置焦点
         let _ = window.set_focus();
         return;
     }
@@ -196,7 +202,7 @@ pub fn create_window() {
             log::info!(target: "app", "Window created successfully, attempting to show");
             let _ = window.show();
             let _ = window.set_focus();
-            
+
             // 设置窗口状态监控，实时保存窗口位置和大小
             crate::feat::setup_window_state_monitor(&app_handle);
         }
@@ -279,6 +285,7 @@ pub async fn resolve_scheme(param: String) -> Result<()> {
     Ok(())
 }
 
+// 随机端口配置
 fn resolve_random_port_config() -> Result<()> {
     let verge_config = Config::verge();
     let clash_config = Config::clash();

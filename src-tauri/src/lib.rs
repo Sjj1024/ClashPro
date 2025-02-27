@@ -62,6 +62,7 @@ pub fn run() {
                 });
             });
 
+            // 启动应用
             tauri::async_runtime::block_on(async move {
                 resolve::resolve_setup(app).await;
             });
@@ -164,8 +165,11 @@ pub fn run() {
                         {
                             log_err!(hotkey::Hotkey::global().register("Control+Q", "quit"));
                         };
-                        {   
-                            let is_enable_global_hotkey = Config::verge().latest().enable_global_hotkey.unwrap_or(true);
+                        {
+                            let is_enable_global_hotkey = Config::verge()
+                                .latest()
+                                .enable_global_hotkey
+                                .unwrap_or(true);
                             if !is_enable_global_hotkey {
                                 log_err!(hotkey::Hotkey::global().init())
                             }
@@ -180,8 +184,11 @@ pub fn run() {
                         {
                             log_err!(hotkey::Hotkey::global().unregister("Control+Q"));
                         };
-                        {   
-                            let is_enable_global_hotkey = Config::verge().latest().enable_global_hotkey.unwrap_or(true);
+                        {
+                            let is_enable_global_hotkey = Config::verge()
+                                .latest()
+                                .enable_global_hotkey
+                                .unwrap_or(true);
                             if !is_enable_global_hotkey {
                                 log_err!(hotkey::Hotkey::global().reset())
                             }
