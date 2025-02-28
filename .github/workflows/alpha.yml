@@ -1,147 +1,152 @@
-name: Alpha Build
+name: Alpha Build # 工作流的名称
 
 on:
-  workflow_dispatch:
-permissions: write-all
+  workflow_dispatch: # 允许手动触发工作流
+
+permissions: write-all # 授予工作流对所有资源的写权限
+
 env:
-  CARGO_INCREMENTAL: 0
-  RUST_BACKTRACE: short
+  CARGO_INCREMENTAL: 0 # 禁用 Rust 的增量编译
+  RUST_BACKTRACE: short # 设置 Rust 的 backtrace 输出为简短模式
+
 concurrency:
-  # only allow per workflow per commit (and not pr) to run at a time
+  # 只允许每个工作流在每个提交上运行一次（不包括 PR）
   group: "${{ github.workflow }} - ${{ github.head_ref || github.ref }}"
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }} # 如果不是 main 分支，取消正在运行的相同工作流
 
 jobs:
   alpha:
     strategy:
-      fail-fast: false
+      fail-fast: false # 如果其中一个任务失败，不会立即停止其他任务
       matrix:
         include:
+          - os: windows-latest # 操作系统：Windows
+            target: x86_64-pc-windows-msvc # 目标架构：x86_64
           - os: windows-latest
-            target: x86_64-pc-windows-msvc
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
+            target: aarch64-pc-windows-msvc # 目标架构：aarch64
+          - os: macos-latest # 操作系统：macOS
+            target: aarch64-apple-darwin # 目标架构：aarch64
           - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: macos-latest
-            target: x86_64-apple-darwin
-          - os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-apple-darwin # 目标架构：x86_64
+          - os: ubuntu-22.04 # 操作系统：Ubuntu 22.04
+            target: x86_64-unknown-linux-gnu # 目标架构：x86_64
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }} # 在指定的操作系统上运行
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repository # 检出代码库
         uses: actions/checkout@v4
 
-      - name: Install Rust Stable
+      - name: Install Rust Stable # 安装稳定版的 Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Add Rust Target
+      - name: Add Rust Target # 添加 Rust 目标架构
         run: rustup target add ${{ matrix.target }}
 
-      - name: Rust Cache
+      - name: Rust Cache # 设置 Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
-          cache-all-crates: true
-          cache-on-failure: true
+          workspaces: src-tauri # 指定工作区
+          cache-all-crates: true # 缓存所有 crate
+          cache-on-failure: true # 即使任务失败也缓存
 
-      - name: Install dependencies (ubuntu only)
+      - name: Install dependencies (ubuntu only) # 仅在 Ubuntu 上安装依赖
         if: matrix.os == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev patchelf
 
-      - name: Install Node
+      - name: Install Node # 安装 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4 # 安装 pnpm
         name: Install pnpm
         with:
           run_install: false
 
-      - name: Pnpm install and check
+      - name: Pnpm install and check # 使用 pnpm 安装依赖并检查
         run: |
           pnpm i
           pnpm check ${{ matrix.target }}
 
-      - name: Alpha Version update
+      - name: Alpha Version update # 更新 Alpha 版本号
         run: pnpm run fix-alpha-version
 
-      - name: Tauri build
+      - name: Tauri build # 使用 Tauri 构建应用程序
         uses: tauri-apps/tauri-action@v0
         env:
-          NODE_OPTIONS: "--max_old_space_size=4096"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NODE_OPTIONS: "--max_old_space_size=4096" # 设置 Node.js 内存限制
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # GitHub Token
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }} # Tauri 签名私钥
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }} # Tauri 私钥密码
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }} # Apple 证书
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }} # Apple 证书密码
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }} # Apple 签名标识
+          APPLE_ID: ${{ secrets.APPLE_ID }} # Apple ID
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }} # Apple 密码
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }} # Apple 团队 ID
         with:
-          tagName: alpha
-          releaseName: "Clash Verge Rev Alpha"
-          releaseBody: "More new features are now supported."
-          releaseDraft: false
-          prerelease: true
-          tauriScript: pnpm
-          args: --target ${{ matrix.target }}
+          tagName: alpha # 发布标签
+          releaseName: "Clash Verge Rev Alpha" # 发布名称
+          releaseBody: "More new features are now supported." # 发布描述
+          releaseDraft: false # 不是草稿
+          prerelease: true # 预发布
+          tauriScript: pnpm # 使用 pnpm 运行 Tauri 脚本
+          args: --target ${{ matrix.target }} # 构建目标
 
-      - name: Portable Bundle
+      - name: Portable Bundle # 生成便携版（仅限 Windows）
         if: matrix.os == 'windows-latest'
         run: pnpm portable ${{ matrix.target }} --alpha
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  alpha-for-linux-arm:
+  # 具体来说，alpha-for-linux-arm 任务的 runs-on 字段设置为 ${{ matrix.os }}，而 matrix.os 的值在 strategy.matrix.include 中定义为 ubuntu-22.04。因此，这个任务只会在 Ubuntu 22.04 的环境中运行。
+
+  alpha-for-linux-arm: # 针对 Linux ARM 架构的构建任务
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu
+            target: aarch64-unknown-linux-gnu # 目标架构：aarch64
             arch: arm64
           - os: ubuntu-22.04
-            target: armv7-unknown-linux-gnueabihf
+            target: armv7-unknown-linux-gnueabihf # 目标架构：armv7
             arch: armhf
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repository # 检出代码库
         uses: actions/checkout@v4
 
-      - name: Install Rust Stable
+      - name: Install Rust Stable # 安装稳定版的 Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Add Rust Target
+      - name: Add Rust Target # 添加 Rust 目标架构
         run: rustup target add ${{ matrix.target }}
 
-      - name: Rust Cache
+      - name: Rust Cache # 设置 Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           cache-all-crates: true
 
-      - name: Install Node
+      - name: Install Node # 安装 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - name: Install pnpm
+      - name: Install pnpm # 安装 pnpm
         uses: pnpm/action-setup@v4
         with:
           run_install: false
 
-      - name: Pnpm install and check
+      - name: Pnpm install and check # 使用 pnpm 安装依赖并检查
         run: |
           pnpm i
           pnpm check ${{ matrix.target }}
 
-      - name: "Setup for linux"
+      - name: "Setup for linux" # 设置 Linux 环境
         run: |-
           sudo ls -lR /etc/apt/
 
@@ -170,21 +175,21 @@ jobs:
             patchelf:${{ matrix.arch }} \
             librsvg2-dev:${{ matrix.arch }}
 
-      - name: "Install aarch64 tools"
+      - name: "Install aarch64 tools" # 安装 aarch64 工具链
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt install -y \
             gcc-aarch64-linux-gnu \
             g++-aarch64-linux-gnu
 
-      - name: "Install armv7 tools"
+      - name: "Install armv7 tools" # 安装 armv7 工具链
         if: matrix.target == 'armv7-unknown-linux-gnueabihf'
         run: |
           sudo apt install -y \
             gcc-arm-linux-gnueabihf \
             g++-arm-linux-gnueabihf
 
-      - name: Build for Linux
+      - name: Build for Linux # 构建 Linux 应用程序
         run: |
           export PKG_CONFIG_ALLOW_CROSS=1
           if [ "${{ matrix.target }}" == "aarch64-unknown-linux-gnu" ]; then
@@ -200,14 +205,14 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
 
-      - name: Get Version
+      - name: Get Version # 获取版本号
         run: |
           sudo apt-get update
           sudo apt-get install jq 
           echo "VERSION=$(cat package.json | jq '.version' | tr -d '"')" >> $GITHUB_ENV
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
 
-      - name: Upload Release
+      - name: Upload Release # 上传发布文件
         uses: softprops/action-gh-release@v2
         with:
           tag_name: alpha
@@ -219,7 +224,7 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/deb/*.deb
             src-tauri/target/${{ matrix.target }}/release/bundle/rpm/*.rpm
 
-  alpha-for-fixed-webview2:
+  alpha-for-fixed-webview2: # 针对固定 WebView2 版本的构建任务
     strategy:
       fail-fast: false
       matrix:
@@ -232,42 +237,42 @@ jobs:
             arch: arm64
     runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repository # 检出代码库
         uses: actions/checkout@v4
 
-      - name: Add Rust Target
+      - name: Add Rust Target # 添加 Rust 目标架构
         run: rustup target add ${{ matrix.target }}
 
-      - name: Rust Cache
+      - name: Rust Cache # 设置 Rust 缓存
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
           cache-all-crates: true
           cache-on-failure: true
 
-      - name: Install Node
+      - name: Install Node # 安装 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4 # 安装 pnpm
         name: Install pnpm
         with:
           run_install: false
 
-      - name: Pnpm install and check
+      - name: Pnpm install and check # 使用 pnpm 安装依赖并检查
         run: |
           pnpm i
           pnpm check ${{ matrix.target }}
 
-      - name: Download WebView2 Runtime
+      - name: Download WebView2 Runtime # 下载 WebView2 运行时
         run: |
           invoke-webrequest -uri https://github.com/westinyang/WebView2RuntimeArchive/releases/download/109.0.1518.78/Microsoft.WebView2.FixedVersionRuntime.109.0.1518.78.${{ matrix.arch }}.cab -outfile Microsoft.WebView2.FixedVersionRuntime.109.0.1518.78.${{ matrix.arch }}.cab
           Expand .\Microsoft.WebView2.FixedVersionRuntime.109.0.1518.78.${{ matrix.arch }}.cab -F:* ./src-tauri
           Remove-Item .\src-tauri\tauri.windows.conf.json
           Rename-Item .\src-tauri\webview2.${{ matrix.arch }}.json tauri.windows.conf.json
 
-      - name: Tauri build
+      - name: Tauri build # 使用 Tauri 构建应用程序
         id: build
         uses: tauri-apps/tauri-action@v0
         env:
@@ -279,7 +284,7 @@ jobs:
           tauriScript: pnpm
           args: --target ${{ matrix.target }}
 
-      - name: Rename
+      - name: Rename # 重命名构建文件
         run: |
           $files = Get-ChildItem ".\src-tauri\target\${{ matrix.target }}\release\bundle\nsis\*-setup.exe"
           foreach ($file in $files) {
@@ -299,7 +304,7 @@ jobs:
             Rename-Item $file.FullName $newName
           }
 
-      - name: Upload Release
+      - name: Upload Release # 上传发布文件
         uses: softprops/action-gh-release@v2
         with:
           tag_name: alpha
@@ -309,32 +314,32 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           files: src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*setup*
 
-      - name: Portable Bundle
+      - name: Portable Bundle # 生成便携版（仅限 Windows）
         run: pnpm portable-fixed-webview2 ${{ matrix.target }} --alpha
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  update_tag:
+  update_tag: # 更新发布标签的任务
     name: Update tag
     runs-on: ubuntu-latest
-    needs: [alpha, alpha-for-linux-arm, alpha-for-fixed-webview2]
+    needs: [alpha, alpha-for-linux-arm, alpha-for-fixed-webview2] # 依赖前面的任务
     steps:
-      - name: Checkout repository
+      - name: Checkout repository # 检出代码库
         uses: actions/checkout@v4
 
-      - name: Set Env
+      - name: Set Env # 设置环境变量
         run: |
           echo "BUILDTIME=$(TZ=Asia/Shanghai date)" >> $GITHUB_ENV
         shell: bash
 
-      # - name: Update Tag
+      # - name: Update Tag  # 更新标签（注释掉的部分）
       #   uses: richardsimko/update-tag@v1
       #   with:
       #     tag_name: alpha
       # env:
       #   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: |
+      - run: | # 生成发布说明
           cat > release.txt << 'EOF'
           ## 我应该下载哪个版本？
 
@@ -366,7 +371,7 @@ jobs:
           Created at  ${{ env.BUILDTIME }}.
           EOF
 
-      - name: Upload Release
+      - name: Upload Release # 上传发布说明
         uses: softprops/action-gh-release@v2
         with:
           tag_name: alpha

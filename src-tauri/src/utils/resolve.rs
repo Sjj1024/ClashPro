@@ -134,6 +134,7 @@ pub fn create_window() {
 
     let app_handle = handle::Handle::global().app_handle().unwrap();
 
+    // 如果是最小化了，就恢复窗口
     if let Some(window) = handle::Handle::global().get_window() {
         println!("Found existing window, trying to show it");
         log::info!(target: "app", "Found existing window, trying to show it");
@@ -154,6 +155,7 @@ pub fn create_window() {
     println!("Creating new window");
     log::info!(target: "app", "Creating new window");
 
+    // windows创建窗口
     #[cfg(target_os = "windows")]
     let window = tauri::WebviewWindowBuilder::new(
                 &app_handle,
@@ -196,11 +198,14 @@ pub fn create_window() {
     .transparent(true)
     .build();
 
+    // 创建窗口
     match window {
         Ok(window) => {
             println!("Window created successfully, attempting to show");
             log::info!(target: "app", "Window created successfully, attempting to show");
+            // 显示窗口
             let _ = window.show();
+            // 设置焦点
             let _ = window.set_focus();
 
             // 设置窗口状态监控，实时保存窗口位置和大小
